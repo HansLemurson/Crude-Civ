@@ -80,10 +80,7 @@ class Grid:
     self.y_corner = y_corner
     self.cols = columns
     self.rows = rows
-    self.selected_coords = None
     self.selected_tile = None
-    self.target_coords = None
-    self.target_tile = None
     self.size = size #The size of one tile (assume a square)
     self.tiles = self.makeMap(columns,rows) # Array of Tiles
     self.units = [] # List of units on map
@@ -124,8 +121,12 @@ class Grid:
     target_coords.units.append(unit)
     self.units.append(unit)
   #-----------------------------------------------------------------------------
-  def tryToMoveUnitTo(self,target_tile):
+  def attemptLegalMoveTo(self,target_tile):
     '''If there is a selected unit, and a valid place to move it to, do so.'''
+    if self.selected_unit:
+      if self.selected_unit.canMoveTo(target_tile): # Check if tile can be moved to
+        self.selected_unit.move(target_tile) # Move it there.
+        self.selected_tile = target_tile # Bring selection along too
     pass
   #-----------------------------------------------------------------------------
   def hasMouse(self):
@@ -168,24 +169,23 @@ class Grid:
       #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       # Handle Left-Clicks 
       if mouseButton == LEFT:
-        if self.selected_coords == (mcol,mrow):
-          self.selected_coords = None
+        #Tile selection toggling
+        if self.selected_tile == self.tileWithMouse():
+          self.selected_tile = None
         else:
-          self.selected_coords = (mcol,mrow)
+          self.selected_tile = self.tileWithMouse()
+        #Select unit from tile
+        if self.selected_tile and self.selected_tile.units: # If there are units
+          self.selected_unit = self.selected_tile.units[-1] # Select last unit
+        else:
+          self.selected_unit = None
       #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       # Handle Right-Clicks
       elif mouseButton == RIGHT:
-        self.target_coords = (mcol,mrow)
-        target_tile = self.getTile(self.target_coords)
         # Attempt to move a unit.
-        if self.selected_coords: #If a tile is even selected
-          selected_tile = self.getTile(self.selected_coords)
-          if selected_tile.units: #If that tile has any units
-            active_unit = selected_tile.units[-1] #Take last unit in list
-            if active_unit.canMoveTo(target_tile): #Check if tile can be moved to
-              active_unit.move(target_tile) # Move it there.
-              self.selected_coords = self.target_coords #Bring selection along too
-              self.target_coords = None # Clear the target
+        if self.selected_unit: # If a unit has been selected
+          self.attemptLegalMoveTo(self.tileWithMouse())
+
       #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #-----------------------------------------------------------------------------
   # Draws the whole Grid to the screen
@@ -200,10 +200,8 @@ class Grid:
     #   unit.draw()
       
     #Draw selection rectangle
-    if self.selected_coords:
-      s_col,s_row = self.selected_coords
-      x = s_col*self.size + self.x_corner
-      y = s_row*self.size + self.y_corner
+    if self.selected_tile:
+      x,y = self.selected_tile.getCorner()
       noFill()
       stroke("#FFFFCC",200)
       strokeWeight(3)
